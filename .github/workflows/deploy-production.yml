@@ -1,0 +1,83 @@
+name: Deploy - Production
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  TF_WORKING_DIR: infra/terraform
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      ENVIRONMENT: production
+      TF_VARS_FILE: environments/production.tfvars
+      ECR_REPOSITORY: cloud-api-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test -- --runInBand
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        id: docker-image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          IMAGE_URI=$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+          TF_STATE_DYNAMO_TABLE: ${{ secrets.TF_STATE_DYNAMO_TABLE }}
+          TF_STATE_KEY: ${{ secrets.TF_STATE_KEY_PRODUCTION }}
+        run: |
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="dynamodb_table=$TF_STATE_DYNAMO_TABLE" \
+            -backend-config="key=$TF_STATE_KEY"
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          IMAGE_TAG: ${{ steps.docker-image.outputs.image_tag }}
+        run: |
+          terraform apply -auto-approve \
+            -var-file="$TF_VARS_FILE" \
+            -var="image_tag=$IMAGE_TAG" \
+            -var="aws_region=${{ secrets.AWS_REGION }}"
