@@ -1,6 +1,6 @@
 # Cloud – Professor IA API
 
-API NestJS que transforma qualquer pergunta em uma explicação estruturada pelo modelo Gemini 2.5 Flash, com foco em estudantes e linguagem de professor. Também expõe uma rota de health-check e documentação via Swagger..
+API NestJS que transforma qualquer pergunta em uma explicação estruturada pelo modelo Gemini 2.5 Flash, com foco em estudantes e linguagem de professor. Também expõe uma rota de health-check e documentação via Swagger.
 
 ## Requisitos
 
