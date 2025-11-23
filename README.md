@@ -1,6 +1,6 @@
 # Cloud – Professor IA API
 
-API NestJS que transforma qualquer pergunta em uma explicação estruturada pelo modelo Gemini 2.5 Flash, com foco em estudantes e linguagem de professor. Também expõe uma rota de health-check e documentação via Swagger.
+API NestJS que transforma qualquer pergunta em uma explicação estruturada pelo modelo Gemini 2.5 Flash, com foco em estudantes e linguagem de professor. Também expõe uma rota de health-check e documentação via Swagger.s
 
 ## Requisitos
 
@@ -27,9 +27,11 @@ API NestJS que transforma qualquer pergunta em uma explicação estruturada pelo
 ## Rotas disponíveis
 
 ### `GET /health`
+
 Verifica se o serviço está saudável.
 
 **Resposta**
+
 ```json
 {
   "status": "ok",
@@ -38,9 +40,11 @@ Verifica se o serviço está saudável.
 ```
 
 ### `POST /study`
+
 Envia uma pergunta em português para o professor virtual (Gemini 2.5 Flash) e retorna um plano de estudos estruturado.
 
 **Body**
+
 ```json
 {
   "question": "Explique o que é derivada e como aplicá-la em física."
@@ -48,6 +52,7 @@ Envia uma pergunta em português para o professor virtual (Gemini 2.5 Flash) e r
 ```
 
 **Resposta**
+
 ```json
 {
   "question": "Explique o que é derivada e como aplicá-la em física.",
@@ -56,44 +61,53 @@ Envia uma pergunta em português para o professor virtual (Gemini 2.5 Flash) e r
 ```
 
 #### Rate limit
+
 A rota `/study` é protegida por um guard in-memory que limita cada origem/IP a **5 requisições por minuto**. Ultrapassar o limite resulta em `429 Too Many Requests`.
 
 ## Documentação Swagger
+
 - Geração automática em `src/main.ts` usando `@nestjs/swagger`.
 - Disponível em runtime via `GET /docs`.
 - Inclui schemas para request/response do `/study` e do `/health`.
 
 ## Como funciona
+
 - `AppController` recebe o POST `/study`, valida o payload e delega para `AppService`.
 - `AppService` usa o SDK oficial `@google/generative-ai` para chamar o modelo Gemini 2.5 Flash com um prompt fixo em tom de professor.
 - `RateLimitGuard` aplica o limite de 5 requisições/minuto por origem/IP.
 - `HealthController` expõe o health-check simples.
 
 ## Scripts úteis
+
 - `npm run start:dev`: modo desenvolvimento com watch.
 - `npm run start:prod`: executa o build gerado em `dist`.
 - `npm run test`: roda os testes unitários (controllers e guards).
 - `npm run lint`: executa o ESLint.
 
 ## Testes
+
 Execute:
+
 ```bash
 npm test
 ```
 
 ## Observações
+
 - O guard de rate limit usa memória local; para múltiplas instâncias considere Redis ou outro storage compartilhado.
 - Garanta que o servidor possui a variável `GEMINI_API_KEY` antes de iniciar, caso contrário o serviço retornará `503`.
 
 ## Execução containerizada
 
 ### Docker
+
 ```bash
 docker build -t cloud-api:latest .
 docker run --rm -p 3000:3000 --env-file .env cloud-api:latest
 ```
 
 ### Docker Compose
+
 1. Garanta um `.env` baseado no `.env.example`.
 2. Suba os serviços:
    ```bash
@@ -104,12 +118,14 @@ docker run --rm -p 3000:3000 --env-file .env cloud-api:latest
 ## Infraestrutura com Terraform + AWS
 
 Os manifests estão em `infra/terraform` e criam:
+
 - Repositório ECR para a imagem do app.
 - VPC pública com 2 subnets, security groups e Internet Gateway.
 - Application Load Balancer exposto publicamente (use o DNS de saída como endpoint).
 - Cluster ECS Fargate, task definition e service com logs no CloudWatch.
 
 ### Pré-requisitos
+
 1. Terraform >= 1.8
 2. AWS CLI autenticado (perfil com permissões para ECS, EC2, IAM, ELB, CloudWatch Logs, ECR, SSM, S3 e DynamoDB).
 3. Bucket S3 + tabela DynamoDB para o state remoto:
@@ -131,6 +147,7 @@ Os manifests estão em `infra/terraform` e criam:
    Utilize nomes/ARNs que correspondam aos valores dos arquivos `infra/terraform/environments/*.tfvars`.
 
 ### Passo a passo
+
 1. Entre na pasta:
    ```bash
    cd infra/terraform
@@ -158,11 +175,14 @@ Repita o processo para `production` usando `environments/production.tfvars` e um
 ## CI/CD com GitHub Actions
 
 Dois workflows foram adicionados em `.github/workflows`:
+
 - `deploy-staging.yml`: executa testes, builda/pusha a imagem para o ECR e roda `terraform apply` usando `environments/staging.tfvars` sempre que houver `push` na branch `staging`.
 - `deploy-production.yml`: mesmo fluxo, disparado por `push` na `main`.
 
 ### Segredos requeridos
+
 Configure em **Settings → Secrets → Actions**:
+
 - `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`
 - `AWS_REGION`
 - `TF_STATE_BUCKET`
